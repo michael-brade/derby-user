@@ -3,22 +3,29 @@ var derby = require('derby');
 var events = require('events');
 var fixtures = require('./fixtures');
 var lib = require('..');
-var livedb = require('livedb');
-var livedbMongo = require('livedb-mongo');
-var MongoClient = require('mongodb').MongoClient;
+var ShareDB = require('sharedb');
+var sharedbMongo = require('sharedb-mongo');
+var mongodb = require('mongodb');
+var MongoClient = mongodb.MongoClient;
 var request = require('supertest');
 var should = require('chai').should();
 
+var mongoURL = 'mongodb://localhost:27017';
+var mongoDBName = 'test';
+
 describe('derby-user', function () {
   it('should be an object', function () {
-    lib.should.be.an.Object;
+    lib.should.be.an('object');
   });
 
   describe('server', function () {
     var emitter = new events.EventEmitter();
-    var db = livedbMongo('mongodb://localhost:27017/test');
-    var backend = livedb.client(db);
-    var store = derby.createStore({backend: backend});
+    var db = sharedbMongo({ 
+        mongo: function(callback) {
+            mongodb.connect(mongoURL + '/' + mongoDBName, callback);
+        }
+    });
+    var store = derby.createBackend({db});
     var opts1 = {emitter: emitter};
     var opts2 = {autoGenerate: false, emitter: emitter};
     var agent1 = null;
@@ -27,7 +34,7 @@ describe('derby-user', function () {
 
     it('should be an object', function () {
       lib.should.have.property('server');
-      lib.server.should.be.an.Object;
+      lib.server.should.be.an('object');
     });
 
     before(function () {
@@ -38,11 +45,11 @@ describe('derby-user', function () {
     describe('init', function () {
       it('should be a function', function () {
         lib.server.should.have.property('init');
-        lib.server.init.should.be.a.Function;
+        lib.server.init.should.be.a('function');
       });
 
       it('should return an app', function () {
-        lib.server.init().should.be.a.Function;
+        lib.server.init().should.be.a('function');
       });
 
       describe('GET *', function () {
@@ -52,13 +59,13 @@ describe('derby-user', function () {
             .expect(200)
             .end(function (err, res) {
               if (err) return done(err);
-              res.body.should.be.an.Object;
+              res.body.should.be.an('object');
               res.body.should.have.property('_session');
-              res.body._session.should.be.an.Object;
+              res.body._session.should.be.an('object');
               res.body._session.should.have.property('user');
-              res.body._session.user.should.be.an.Object;
+              res.body._session.user.should.be.an('object');
               res.body._session.user.should.have.property('id');
-              res.body._session.user.id.should.be.a.String;
+              res.body._session.user.id.should.be.a('string');
               res.body._session.user.id.should.not.be.empty;
               var model = store.createModel();
               var $user = model.at('users.' + res.body._session.user.id);
@@ -66,12 +73,12 @@ describe('derby-user', function () {
                 if (err) return done(err);
                 var user = $user.get();
                 (user == null).should.be.false;
-                user.should.be.an.Object;
+                user.should.be.an('object');
                 user.should.have.property('id');
-                user.id.should.be.a.String;
+                user.id.should.be.a('string');
                 user.id.should.not.be.empty;
                 user.should.have.property('created');
-                user.created.should.be.a.Number;
+                user.created.should.be.a('number');
                 user.created.should.be.above(0);
                 done();
               });
@@ -84,7 +91,7 @@ describe('derby-user', function () {
             .expect(200)
             .end(function (err, res) {
               if (err) return done(err);
-              res.body.should.be.an.Object;
+              res.body.should.be.an('object');
               res.body.should.not.have.property('_session');
               done();
             });
@@ -95,16 +102,16 @@ describe('derby-user', function () {
     describe('routes', function () {
       it('should be a function', function () {
         lib.server.should.have.property('routes');
-        lib.server.routes.should.be.a.Function;
+        lib.server.routes.should.be.a('function');
       });
 
       function reset(done) {
-        MongoClient.connect('mongodb://localhost:27017/test',
-          function(err, db) {
+        MongoClient.connect(mongoURL,
+          function(err, client) {
             agent1 = request.agent(fixtures.app(lib, derby, store, opts1));
             agent2 = request.agent(fixtures.app(lib, derby, store, opts2));
             agent3 = request.agent(fixtures.app(lib, derby, store, opts2));
-            db.dropDatabase(done);
+            client.db(mongoDBName).dropDatabase(done);
           }
         );
       }
@@ -177,42 +184,42 @@ describe('derby-user', function () {
                   var model = store.createModel();
                   var $user = model.at('users.' + userId);
                   res.body.should.have.property('user');
-                  res.body.user.should.be.an.Object;
+                  res.body.user.should.be.an('object');
                   res.body.user.should.have.property('id');
-                  res.body.user.id.should.be.a.String;
+                  res.body.user.id.should.be.a('string');
                   res.body.user.id.should.equal(userId);
                   $user.fetch(function (err) {
                     if (err) return done(err);
                     var user = $user.get();
                     (user == null).should.be.false;
-                    user.should.be.an.Object;
+                    user.should.be.an('object');
                     user.should.have.property('id');
-                    user.id.should.be.a.String;
+                    user.id.should.be.a('string');
                     user.id.should.not.be.empty;
                     user.should.have.property('created');
-                    user.created.should.be.a.Number;
+                    user.created.should.be.a('number');
                     user.created.should.be.above(0);
                     user.should.have.property('local');
-                    user.local.should.be.an.Object;
+                    user.local.should.be.an('object');
                     user.local.should.have.property('username');
-                    user.local.username.should.be.a.String;
+                    user.local.username.should.be.a('string');
                     user.local.username.should.not.be.empty;
                     user.local.username.should.equal('user1');
                     user.local.should.have.property('emails');
                     user.local.emails.should.be.an.Array;
                     user.local.emails.should.not.be.empty;
-                    user.local.emails[0].should.be.an.Object;
+                    user.local.emails[0].should.be.an('object');
                     user.local.emails[0].should.have.property('value');
-                    user.local.emails[0].value.should.be.a.String;
+                    user.local.emails[0].value.should.be.a('string');
                     user.local.emails[0].value.should.not.be.empty;
                     user.local.emails[0].value.should.equal('user1@email.com');
                     user.local.emails[0].should.have.property('verified');
                     user.local.emails[0].verified.should.be.a.Boolean;
                     user.local.emails[0].verified.should.be.false;
                     user.local.should.have.property('password');
-                    user.local.password.should.be.an.Object;
+                    user.local.password.should.be.an('object');
                     user.local.password.should.have.property('hash');
-                    user.local.password.hash.should.be.a.String;
+                    user.local.password.hash.should.be.a('string');
                     user.local.password.hash.should.not.be.empty;
                     done();
                   });
@@ -248,9 +255,9 @@ describe('derby-user', function () {
             .end(function(err, res) {
               if (err) return done(err);
               res.body.should.have.property('user');
-              res.body.user.should.be.an.Object;
+              res.body.user.should.be.an('object');
               res.body.user.should.have.property('id');
-              res.body.user.id.should.be.a.String;
+              res.body.user.id.should.be.a('string');
               res.body.user.id.should.not.be.empty;
               var model = store.createModel();
               var $user = model.at('users.' + res.body.user.id);
@@ -258,46 +265,46 @@ describe('derby-user', function () {
                 if (err) return done(err);
                 var user = $user.get();
                 (user === null).should.be.false;
-                user.should.be.an.Object;
+                user.should.be.an('object');
                 user.should.have.property('id');
-                user.id.should.be.a.String;
+                user.id.should.be.a('string');
                 user.id.should.not.be.empty;
                 user.should.have.property('created');
-                user.created.should.be.a.Number;
+                user.created.should.be.a('number');
                 user.created.should.be.above(0);
                 user.should.have.property('local');
-                user.local.should.be.an.Object;
+                user.local.should.be.an('object');
                 user.local.should.have.property('username');
-                user.local.username.should.be.a.String;
+                user.local.username.should.be.a('string');
                 user.local.username.should.not.be.empty;
                 user.local.username.should.equal('user2');
                 user.local.should.have.property('emails');
                 user.local.emails.should.be.an.Array;
                 user.local.emails.should.not.be.empty;
-                user.local.emails[0].should.be.an.Object;
+                user.local.emails[0].should.be.an('object');
                 user.local.emails[0].should.have.property('value');
-                user.local.emails[0].value.should.be.a.String;
+                user.local.emails[0].value.should.be.a('string');
                 user.local.emails[0].value.should.not.be.empty;
                 user.local.emails[0].value.should.equal('user2@email.com');
                 user.local.emails[0].should.have.property('verified');
                 user.local.emails[0].verified.should.be.a.Boolean;
                 user.local.emails[0].verified.should.be.false;
                 user.local.should.have.property('password');
-                user.local.password.should.be.an.Object;
+                user.local.password.should.be.an('object');
                 user.local.password.should.have.property('hash');
-                user.local.password.hash.should.be.a.String;
+                user.local.password.hash.should.be.a('string');
                 user.local.password.hash.should.not.be.empty;
                 agent2
                   .get('/')
                   .end(function (err, res) {
                     if (err) return done(err);
-                    res.body.should.be.an.Object;
+                    res.body.should.be.an('object');
                     res.body.should.have.property('_session');
-                    res.body._session.should.be.an.Object;
+                    res.body._session.should.be.an('object');
                     res.body._session.should.have.property('user');
-                    res.body._session.user.should.be.an.Object;
+                    res.body._session.user.should.be.an('object');
                     res.body._session.user.should.have.property('id');
-                    res.body._session.user.id.should.be.a.String;
+                    res.body._session.user.id.should.be.a('string');
                     res.body._session.user.id.should.not.be.empty;
                     res.body._session.user.id.should.equal(user.id);
                     done();
@@ -320,13 +327,13 @@ describe('derby-user', function () {
                 .expect(200)
                 .end(function (err, res) {
                   if (err) return done(err);
-                  res.body.should.be.an.Object;
+                  res.body.should.be.an('object');
                   res.body.should.have.property('_session');
-                  res.body._session.should.be.an.Object;
+                  res.body._session.should.be.an('object');
                   res.body._session.should.have.property('user');
-                  res.body._session.user.should.be.an.Object;
+                  res.body._session.user.should.be.an('object');
                   res.body._session.user.should.have.property('id');
-                  res.body._session.user.id.should.be.a.String;
+                  res.body._session.user.id.should.be.a('string');
                   res.body._session.user.id.should.not.be.empty;
                   var model = store.createModel();
                   var $user = model.at('users.' + res.body._session.user.id);
@@ -334,12 +341,12 @@ describe('derby-user', function () {
                     if (err) return done(err);
                     var user = $user.get();
                     (user === null).should.be.false;
-                    user.should.be.an.Object;
+                    user.should.be.an('object');
                     user.should.have.property('id');
-                    user.id.should.be.a.String;
+                    user.id.should.be.a('string');
                     user.id.should.not.be.empty;
                     user.should.have.property('created');
-                    user.created.should.be.a.Number;
+                    user.created.should.be.a('number');
                     user.created.should.be.above(0);
                     done();
                   });
@@ -357,7 +364,7 @@ describe('derby-user', function () {
                 .expect(200)
                 .end(function (err, res) {
                   if (err) return done(err);
-                  res.body.should.be.an.Object;
+                  res.body.should.be.an('object');
                   res.body.should.not.have.property('_session');
                   done();
                 });
@@ -378,13 +385,13 @@ describe('derby-user', function () {
                 .expect(200)
                 .end(function (err, res) {
                   if (err) return done(err);
-                  res.body.should.be.an.Object;
+                  res.body.should.be.an('object');
                   res.body.should.have.property('_session');
-                  res.body._session.should.be.an.Object;
+                  res.body._session.should.be.an('object');
                   res.body._session.should.have.property('user');
-                  res.body._session.user.should.be.an.Object;
+                  res.body._session.user.should.be.an('object');
                   res.body._session.user.should.have.property('id');
-                  res.body._session.user.id.should.be.a.String;
+                  res.body._session.user.id.should.be.a('string');
                   res.body._session.user.id.should.not.be.empty;
                   var model = store.createModel();
                   var $user = model.at('users.' + res.body._session.user.id);
@@ -392,12 +399,12 @@ describe('derby-user', function () {
                     if (err) return done(err);
                     var user = $user.get();
                     (user === null).should.be.false;
-                    user.should.be.an.Object;
+                    user.should.be.an('object');
                     user.should.have.property('id');
-                    user.id.should.be.a.String;
+                    user.id.should.be.a('string');
                     user.id.should.not.be.empty;
                     user.should.have.property('created');
-                    user.created.should.be.a.Number;
+                    user.created.should.be.a('number');
                     user.created.should.be.above(0);
                     done();
                   });
@@ -415,7 +422,7 @@ describe('derby-user', function () {
                 .expect(200)
                 .end(function (err, res) {
                   if (err) return done(err);
-                  res.body.should.be.an.Object;
+                  res.body.should.be.an('object');
                   res.body.should.not.have.property('_session');
                   done();
                 });
@@ -434,11 +441,11 @@ describe('derby-user', function () {
             .expect(200)
             .end(function (err, res) {
               if (err) return done(err);
-              res.body.should.be.an.Object;
+              res.body.should.be.an('object');
               res.body.should.have.property('user');
-              res.body.user.should.be.an.Object;
+              res.body.user.should.be.an('object');
               res.body.user.should.have.property('id');
-              res.body.user.id.should.be.a.String;
+              res.body.user.id.should.be.a('string');
               res.body.user.id.should.not.be.empty;
               var userId = res.body.user.id;
               agent1
@@ -446,13 +453,13 @@ describe('derby-user', function () {
                 .expect(200)
                 .end(function (err, res) {
                   if (err) return done(err);
-                  res.body.should.be.an.Object;
+                  res.body.should.be.an('object');
                   res.body.should.have.property('_session');
-                  res.body._session.should.be.an.Object;
+                  res.body._session.should.be.an('object');
                   res.body._session.should.have.property('user');
-                  res.body._session.user.should.be.an.Object;
+                  res.body._session.user.should.be.an('object');
                   res.body._session.user.should.have.property('id');
-                  res.body._session.user.id.should.be.a.String;
+                  res.body._session.user.id.should.be.a('string');
                   res.body._session.user.id.should.not.be.empty;
                   res.body._session.user.id.should.equal(userId);
                   done();
@@ -468,11 +475,11 @@ describe('derby-user', function () {
             .expect(200)
             .end(function (err, res) {
               if (err) return done(err);
-              res.body.should.be.an.Object;
+              res.body.should.be.an('object');
               res.body.should.have.property('user');
-              res.body.user.should.be.an.Object;
+              res.body.user.should.be.an('object');
               res.body.user.should.have.property('id');
-              res.body.user.id.should.be.a.String;
+              res.body.user.id.should.be.a('string');
               res.body.user.id.should.not.be.empty;
               var userId = res.body.user.id;
               agent1
@@ -480,13 +487,13 @@ describe('derby-user', function () {
                 .expect(200)
                 .end(function (err, res) {
                   if (err) return done(err);
-                  res.body.should.be.an.Object;
+                  res.body.should.be.an('object');
                   res.body.should.have.property('_session');
-                  res.body._session.should.be.an.Object;
+                  res.body._session.should.be.an('object');
                   res.body._session.should.have.property('user');
-                  res.body._session.user.should.be.an.Object;
+                  res.body._session.user.should.be.an('object');
                   res.body._session.user.should.have.property('id');
-                  res.body._session.user.id.should.be.a.String;
+                  res.body._session.user.id.should.be.a('string');
                   res.body._session.user.id.should.not.be.empty;
                   res.body._session.user.id.should.equal(userId);
                   done();
@@ -565,11 +572,11 @@ describe('derby-user', function () {
             .expect(201)
             .end(function (err, res) {
               if (err) return done(err);
-              res.body.should.be.an.Object;
+              res.body.should.be.an('object');
               res.body.should.have.property('user');
-              res.body.user.should.be.an.Object;
+              res.body.user.should.be.an('object');
               res.body.user.should.have.property('id');
-              res.body.user.id.should.be.a.String;
+              res.body.user.id.should.be.a('string');
               res.body.user.id.should.not.be.empty;
               var model = store.createModel();
               var $user = model.at('users.' + res.body.user.id);
@@ -577,12 +584,12 @@ describe('derby-user', function () {
                 if (err) return done(err);
                 var user = $user.get();
                 (user === null).should.be.false;
-                user.should.be.an.Object;
+                user.should.be.an('object');
                 user.should.have.property('id');
-                user.id.should.be.a.String;
+                user.id.should.be.a('string');
                 user.id.should.not.be.empty;
                 user.should.have.property('created');
-                user.created.should.be.a.Number;
+                user.created.should.be.a('number');
                 user.created.should.be.above(0);
                 done();
               });
@@ -601,7 +608,7 @@ describe('derby-user', function () {
             .expect(200)
             .end(function (err, res) {
               if (err) return done(err);
-              res.body.should.be.an.Object;
+              res.body.should.be.an('object');
               res.body.should.have.property('matches');
               res.body.matches.should.be.a.Boolean;
               res.body.matches.should.be.true;
@@ -617,7 +624,7 @@ describe('derby-user', function () {
             .expect(200)
             .end(function (err, res) {
               if (err) return done(err);
-              res.body.should.be.an.Object;
+              res.body.should.be.an('object');
               res.body.should.have.property('matches');
               res.body.matches.should.be.a.Boolean;
               res.body.matches.should.be.true;
@@ -637,7 +644,7 @@ describe('derby-user', function () {
                 .expect(200)
                 .end(function (err, res) {
                   if (err) return done(err);
-                  res.body.should.be.an.Object;
+                  res.body.should.be.an('object');
                   res.body.should.have.property('matches');
                   res.body.matches.should.be.a.Boolean;
                   res.body.matches.should.be.true;
@@ -654,7 +661,7 @@ describe('derby-user', function () {
             .expect(200)
             .end(function (err, res) {
               if (err) return done(err);
-              res.body.should.be.an.Object;
+              res.body.should.be.an('object');
               res.body.should.have.property('matches');
               res.body.matches.should.be.a.Boolean;
               res.body.matches.should.be.false;
@@ -670,7 +677,7 @@ describe('derby-user', function () {
             .expect(200)
             .end(function (err, res) {
               if (err) return done(err);
-              res.body.should.be.an.Object;
+              res.body.should.be.an('object');
               res.body.should.have.property('matches');
               res.body.matches.should.be.a.Boolean;
               res.body.matches.should.be.false;
@@ -691,7 +698,7 @@ describe('derby-user', function () {
                 .expect(200)
                 .end(function (err, res) {
                   if (err) return done(err);
-                  res.body.should.be.an.Object;
+                  res.body.should.be.an('object');
                   res.body.should.have.property('matches');
                   res.body.matches.should.be.a.Boolean;
                   res.body.matches.should.be.false;
@@ -783,17 +790,17 @@ describe('derby-user', function () {
                     $user2.fetch(function (err) {
                       if (err) return done(err);
                       var user2 = $user2.get();
-                      user2.local.emails[0].value.should.be.a.String;
+                      user2.local.emails[0].value.should.be.a('string');
                       user2.local.emails[0].value.should.not.be.empty;
                       user2.local.emails[0].value.should.equal('user3@email.com');
                       user2.local.emails[0].verified.should.be.a.Boolean;
                       user2.local.emails[0].verified.should.be.false;
-                      user2.local.emails[0].token.should.be.an.Object;
+                      user2.local.emails[0].token.should.be.an('object');
                       user2.local.emails[0].token.should.have.property('hash');
-                      user2.local.emails[0].token.hash.should.be.a.String;
+                      user2.local.emails[0].token.hash.should.be.a('string');
                       user2.local.emails[0].token.hash.should.not.equal($user1.get('local.emails.0.token.hash'));
                       user2.local.emails[0].token.should.have.property('date');
-                      user2.local.emails[0].token.date.should.be.a.Number;
+                      user2.local.emails[0].token.date.should.be.a('number');
                       user2.local.emails[0].token.date.should.be.above(0);
                       user2.local.emails[0].token.date.should.not.equal($user1.get('local.emails.0.token.date'));
                       done();
@@ -859,7 +866,7 @@ describe('derby-user', function () {
                     $user2.fetch(function (err) {
                       if (err) return done(err);
                       var user2 = $user2.get();
-                      user2.local.password.hash.should.be.a.String;
+                      user2.local.password.hash.should.be.a('string');
                       user2.local.password.hash.should.not.be.empty;
                       user2.local.password.hash.should.not.equal($user1.get('local.password.hash'));
                       done();
@@ -914,7 +921,7 @@ describe('derby-user', function () {
                     $user2.fetch(function (err) {
                       if (err) return done(err);
                       var user2 = $user2.get();
-                      user2.local.username.should.be.a.String;
+                      user2.local.username.should.be.a('string');
                       user2.local.username.should.not.be.empty;
                       user2.local.username.should.equal('user3');
                       done();
@@ -941,10 +948,10 @@ describe('derby-user', function () {
             req.should.be.an('object');
             data.should.be.an('object');
             data.should.have.property('token');
-            data.token.should.be.a.String;
+            data.token.should.be.a('string');
             data.token.should.not.be.empty;
             data.should.have.property('userId');
-            data.userId.should.be.a.String;
+            data.userId.should.be.a('string');
             data.userId.should.not.be.empty;
             emitted = true;
           });
@@ -968,12 +975,12 @@ describe('derby-user', function () {
                     $user2.fetch(function (err) {
                       if (err) return done(err);
                       var user2 = $user2.get();
-                      user2.local.emails[0].token.should.be.an.Object;
+                      user2.local.emails[0].token.should.be.an('object');
                       user2.local.emails[0].token.should.have.property('hash');
-                      user2.local.emails[0].token.hash.should.be.a.String;
+                      user2.local.emails[0].token.hash.should.be.a('string');
                       user2.local.emails[0].token.hash.should.not.equal($user1.get('local.emails.0.token.hash'));
                       user2.local.emails[0].token.should.have.property('date');
-                      user2.local.emails[0].token.date.should.be.a.Number;
+                      user2.local.emails[0].token.date.should.be.a('number');
                       user2.local.emails[0].token.date.should.be.above(0);
                       user2.local.emails[0].token.date.should.not.equal($user1.get('local.emails.0.token.date'));
                       emitted.should.be.true;
@@ -1033,10 +1040,10 @@ describe('derby-user', function () {
               req.should.be.an('object');
               data.should.be.an('object');
               data.should.have.property('token');
-              data.token.should.be.a.String;
+              data.token.should.be.a('string');
               data.token.should.not.be.empty;
               data.should.have.property('userId');
-              data.userId.should.be.a.String;
+              data.userId.should.be.a('string');
               data.userId.should.not.be.empty;
               emitted = true;
             }
@@ -1184,10 +1191,10 @@ describe('derby-user', function () {
             req.should.be.an('object');
             data.should.be.an('object');
             data.should.have.property('token');
-            data.token.should.be.a.String;
+            data.token.should.be.a('string');
             data.token.should.not.be.empty;
             data.should.have.property('userId');
-            data.userId.should.be.a.String;
+            data.userId.should.be.a('string');
             data.userId.should.not.be.empty;
             emitted = true;
           });
@@ -1210,10 +1217,10 @@ describe('derby-user', function () {
             req.should.be.an('object');
             data.should.be.an('object');
             data.should.have.property('token');
-            data.token.should.be.a.String;
+            data.token.should.be.a('string');
             data.token.should.not.be.empty;
             data.should.have.property('userId');
-            data.userId.should.be.a.String;
+            data.userId.should.be.a('string');
             data.userId.should.not.be.empty;
             emitted = true;
           });
